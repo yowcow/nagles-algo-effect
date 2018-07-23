@@ -97,7 +97,7 @@ func doEcho(args [][]byte, w io.Writer, r io.Reader) error {
 		}
 	}
 
-	io.WriteString(w, fmt.Sprintf("$%d", expLen))
+	io.WriteString(w, fmt.Sprintf("$%d", len(buffer)))
 	io.WriteString(w, crlf)
 	w.Write(buffer)
 	io.WriteString(w, crlf)

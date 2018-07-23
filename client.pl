@@ -5,9 +5,12 @@ use Getopt::Long;
 use IO::Socket::INET;
 
 my $autoflush;
+my $count;
 GetOptions(
     'autoflush' => \$autoflush,
+    'count=i'   => \$count,
 );
+$count = 1 if not $count;
 
 my $crlf = "\x0d\x0a";
 
@@ -17,7 +20,7 @@ my $sock = IO::Socket::INET->new(
     Proto    => 'tcp',
 );
 
-# disable flushing
+# enable autoflushing only with option `--autoflush`
 my $oldfh = select $sock;
 $| = $autoflush ? 1 : 0;
 select $oldfh;
@@ -27,35 +30,24 @@ hoge
 fuga
 foo
 bar
+buz
 END_OF_DATA
 my $len = length $data;
 
-my $count = 0;
-
-for (1 .. 10_000) {
+for (my $i = 0; $i < $count; $i++) {
     print $sock "ECHO ${len}${crlf}";
     print $sock "${data}${crlf}";
     $sock->flush;
 
     my $resp = <$sock>;
-    my $exp_len = substr($resp, 1, -2);
+    my $exp_len = substr $resp, 1, -2;
+    my $read_len = $exp_len + 2;
 
-    my $buffer = '';
-    my $tmp = '';
-    my $cur_len = 0;
+    my $buffer;
+    my $n = read $sock, $buffer, $read_len, 0;
+    die "read ${n} bytes where ${read_len} bytes were expected" if $n != $read_len;
 
-    while ($cur_len < $exp_len) {
-        my $n = $sock->read($tmp, $exp_len, $cur_len);
-        $buffer .= $tmp;
-        $cur_len += $n;
-
-        if ($cur_len >= $exp_len) {
-            $buffer = substr($buffer, 0, $exp_len);
-            $sock->read($tmp, 2 - ($cur_len - $exp_len));
-            last;
-        }
-    }
-
-    $count++;
-    print "count: ${count}\n";
+    my $data = substr $buffer, 0, -2;
+    my $data_len = length $data;
+    print "try ${i}: got ${data_len} bytes${crlf}";
 }
